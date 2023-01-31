@@ -27,14 +27,7 @@ def main(args):
     # read in data
     df = pd.read_csv(args.spam_csv)
     
-    # Save the text into the X variable
-    X = df.drop("label", axis=1)
-
-    # Save the true labels into the y variable
-    y = df["label"]
-
-    # Use 1/5 of the data for testing later
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=args.test_size, random_state=args.random_state, stratify=y)
+    X_train, X_test, y_train, y_test = process_data(df, args.random_state)    
 
     # Print number of comments for each set
     print(f"There are {X_train.shape[0]} comments for training.")
@@ -109,6 +102,7 @@ def main(args):
     #### VECTORIZER
     # Registering the vectorizer to the workspace
     print("Registering the vectorizer via MLFlow")
+
     mlflow.sklearn.log_model(
         sk_model=vectorizer,
         registered_model_name=args.registered_vec_name,
@@ -119,18 +113,21 @@ def main(args):
     mlflow.sklearn.save_model(vectorizer, "../../model")
 
     
-    os.makedirs('./outputs', exist_ok=True)
-    with open(args.registered_model_name, 'wb') as file:
-        joblib.dump(value=clf, filename='outputs/' + args.registered_model_name)    
+    # os.makedirs('./outputs', exist_ok=True)
+    # with open(args.registered_model_name, 'wb') as file:
+    #     joblib.dump(value=clf, filename='outputs/' + args.registered_model_name)    
 
-    with open(args.registered_vec_name, 'wb') as file:
-        joblib.dump(value=vectorizer, filename='outputs/' + args.registered_vec_name)
+    # with open(args.registered_vec_name, 'wb') as file:
+    #     joblib.dump(value=vectorizer, filename='outputs/' + args.registered_vec_name)
         
     # Stop Logging
     mlflow.end_run()
-
-
-
+    
+def process_data(df, random_state):
+    X = df.drop(["label"], axis=1)
+    y = df["label"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
+    return X_train, X_test, y_train, y_test
 
 # run script
 if __name__ == "__main__":
@@ -139,7 +136,6 @@ if __name__ == "__main__":
 
     # add arguments
     parser.add_argument("--spam-csv", type=str)
-    parser.add_argument("--test_size", type=float, required=False, default=0.20)
     parser.add_argument("--registered_model_name", type=str, help="model name")
     parser.add_argument("--registered_vec_name", type=str, help="vectorizer name")
     parser.add_argument("--random_state", type=int, default=42)

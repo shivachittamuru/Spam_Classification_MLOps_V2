@@ -1,4 +1,6 @@
 azure-ai-ml
+azureml-fsspec
+mltable
 #azure-cli
 scikit-learn
 mlflow

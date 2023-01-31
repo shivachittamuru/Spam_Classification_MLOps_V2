@@ -40,9 +40,7 @@ cpu_compute_target = "cpu-cluster"
 try:
     # let's see if the compute target already exists
     cpu_cluster = ml_client.compute.get(cpu_compute_target)
-    print(
-        f"You already have a cluster named {cpu_compute_target}, we'll reuse it as is."
-    )
+    print(f"You already have a cluster named {cpu_compute_target}, we'll reuse it as is.")
 
 except Exception:
     print("Creating a new cpu compute target...")
@@ -74,41 +72,45 @@ except Exception:
 spam_dataset = ml_client.data.get(name="spam_class", version="2")
 
 # Create a Job Environment
-dependencies_dir = "../environment_setup"
+dependencies_dir = "./environment_setup"
 os.makedirs(dependencies_dir, exist_ok=True)
 
 
 
 custom_env_name = "spam-mlops-env"
 
-job_env = Environment(
-    name=custom_env_name,
-    description="Custom environment for sklearn image classification",
-    conda_file=os.path.join(dependencies_dir, "conda.yml"),
-    image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest",
-)
-job_env = ml_client.environments.create_or_update(job_env)
+try:
+    job_env = ml_client.environments.get(custom_env_name, version=5)
+    print(f"Environment with name {job_env.name} and specified version found in the workspace, no new version is created.")
+except Exception as ex:
+    job_env = Environment(
+        name=custom_env_name,
+        description="Custom environment for sklearn image classification",
+        conda_file=os.path.join(dependencies_dir, "conda.yml"),
+        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest",
+    )
+    job_env = ml_client.environments.create_or_update(job_env)
 
-print(
-    f"Environment with name {job_env.name} is registered to workspace, the environment version is {job_env.version}"
-)
+    print(
+        f"Environment with name {job_env.name} is registered to workspace, the environment version is {job_env.version}"
+    )
 
 model_name = "spam-classifier"
 vec_name = "count-vec"
 
 # create the command
 job = command(
-    code="../scripts/training",  # local path where the code is stored
-    command="python main.py --spam-csv ${{inputs.spam}} --registered_model_name ${{inputs.registered_model_name}} --registered_vec_name ${{inputs.registered_vec_name}}",
     inputs=dict(
         spam=Input(type="uri_file", path=spam_dataset.id),
         registered_model_name=model_name,
         registered_vec_name=vec_name,
     ),
+    code="../scripts/training",  # local path where the code is stored
+    command="python main.py --spam-csv ${{inputs.spam}} --registered_model_name ${{inputs.registered_model_name}} --registered_vec_name ${{inputs.registered_vec_name}}",
     environment=job_env,
     compute="cpu-cluster",
-    display_name="spam-class-mlops-v2",
     experiment_name="exp-spam-class-mlops-v2",
+    display_name="spam-class-mlops-v2",
     #description=""
 )
 

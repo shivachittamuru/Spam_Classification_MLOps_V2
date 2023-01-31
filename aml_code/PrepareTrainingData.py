@@ -35,7 +35,7 @@ print(ml_client)
 """Load labeled spam dataset."""
 
 # Path where csv files are located
-base_path = "./data/csv_data"
+base_path = "./data/comments_data"
 
 # List of csv files with full path
 csv_files = [os.path.join(base_path, csv) for csv in os.listdir(base_path)]
@@ -76,20 +76,23 @@ try:
     print('spam.csv training data created')
 except:
     print("directory already exists")
+
+
     
-    
-my_path = './data/training_data/spam.csv'
+
 
 my_data = Data(
-    path=my_path,
+    path='./data/training_data/spam.csv',
     type=AssetTypes.URI_FILE,
     description="youtube data for spam classification mlops example",
     name="spam_class",
-    version="2"
 )
-
 ml_client.data.create_or_update(my_data)
 
 
-spam_dataset = ml_client.data.get(name="spam_class", version="1")
+latest_version = ml_client.data._get_latest_version(name="spam_class").version
+spam_dataset = ml_client.data.get(name="spam_class", version=latest_version)
 
+
+#df = pd.read_csv(spam_dataset.path)
+#df.head()
