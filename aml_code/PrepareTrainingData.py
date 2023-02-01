@@ -90,9 +90,10 @@ my_data = Data(
 ml_client.data.create_or_update(my_data)
 
 
-latest_version = ml_client.data._get_latest_version(name="spam_class").version
-spam_dataset = ml_client.data.get(name="spam_class", version=latest_version)
+#latest_version = ml_client.data._get_latest_version(name="spam_class").version
+#spam_dataset = ml_client.data.get(name="spam_class", version=latest_version)
 
+spam_dataset = ml_client.data.get(name="spam_class", label="latest")
 
 #df = pd.read_csv(spam_dataset.path)
 #df.head()

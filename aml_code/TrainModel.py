@@ -6,7 +6,7 @@ import os, json, sys
 
 from azure.ai.ml import MLClient
 from azure.ai.ml.entities import AmlCompute
-from azure.ai.ml.entities import Data
+from azure.ai.ml.entities import Data, Model
 from azure.ai.ml.entities import Environment
 from azure.ai.ml import command, Input
 from azure.ai.ml.constants import AssetTypes, InputOutputModes
@@ -31,8 +31,6 @@ ml_client = MLClient(
 
 # print Workspace details
 print(ml_client)
-
-
 
 # Name assigned to the compute cluster
 cpu_compute_target = "cpu-cluster"
@@ -69,12 +67,13 @@ except Exception:
 
 
 # Get data from AML Data Assets
-spam_dataset = ml_client.data.get(name="spam_class", version="2")
+latest_version = ml_client.data._get_latest_version(name="spam_class").version
+spam_dataset = ml_client.data.get(name="spam_class", version=latest_version)
+
 
 # Create a Job Environment
 dependencies_dir = "./environment_setup"
 os.makedirs(dependencies_dir, exist_ok=True)
-
 
 
 custom_env_name = "spam-mlops-env"
@@ -95,22 +94,20 @@ except Exception as ex:
         f"Environment with name {job_env.name} is registered to workspace, the environment version is {job_env.version}"
     )
 
-model_name = "spam-classifier"
-vec_name = "count-vec"
+model_name = "spam-svm-classifier"
 
 # create the command
 job = command(
+    code="./scripts/training",  # local path where the code is stored
+    command="python main-autolog.py --spam-csv ${{inputs.spam}} --registered_model_name ${{inputs.registered_model_name}}",
     inputs=dict(
         spam=Input(type="uri_file", path=spam_dataset.id),
         registered_model_name=model_name,
-        registered_vec_name=vec_name,
     ),
-    code="../scripts/training",  # local path where the code is stored
-    command="python main.py --spam-csv ${{inputs.spam}} --registered_model_name ${{inputs.registered_model_name}} --registered_vec_name ${{inputs.registered_vec_name}}",
     environment=job_env,
     compute="cpu-cluster",
-    experiment_name="exp-spam-class-mlops-v2",
     display_name="spam-class-mlops-v2",
+    experiment_name="exp-spam-class-mlops-v2",
     #description=""
 )
 
@@ -118,15 +115,30 @@ job = command(
 # submit the command
 returned_job = ml_client.create_or_update(job)
 
+aml_url = returned_job.studio_url
+print("Monitor your job at", aml_url)
 
-run_id = {}
-run_id["run_id"] = returned_job.name
-run_id["experiment_name"] = returned_job.experiment_name
-with open("./configuration/run_id.json", "w") as outfile:
-    json.dump(run_id, outfile)
+
+job_config = {}
+job_config["job_id"] = returned_job.id
+job_config["job_name"] = returned_job.name
+job_config["experiment_name"] = returned_job.experiment_name
+with open("./configuration/job_config.json", "w") as outfile:
+    json.dump(job_config, outfile)
     
+models = ml_client.models.list(name=model_name)
+for model in models:
+    print(model.version)
 
 
+latest_model_version = max(
+    [int(m.version) for m in ml_client.models.list(name=model_name)]
+)
 
+model_config = {}
+model_config["name"] = model_name
+model_config["version"] = latest_model_version
+with open("./configuration/model_config.json", "w") as outfile:
+    json.dump(model_config, outfile)
 
-
+print("Downloaded model {} to model directory".format(model_name))

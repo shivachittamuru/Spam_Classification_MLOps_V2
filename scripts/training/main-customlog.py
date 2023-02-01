@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import pandas as pd
+import re
 import matplotlib.pyplot as plt
 import os, json, sys
 import joblib
@@ -9,8 +10,9 @@ import mlflow
 import argparse
 
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import make_pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
@@ -26,35 +28,34 @@ def main(args):
 
     # read in data
     df = pd.read_csv(args.spam_csv)
+    df['text'] = df['text'].apply(lambda text: re.sub('[^A-Za-z]+', ' ', text.lower()))
     
-    X_train, X_test, y_train, y_test = process_data(df, args.random_state)    
+    X = df[['text']]
+    y = df[['label']]
+
+    # Use 1/5 of the data for testing later
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=args.test_size, random_state=args.random_state, stratify=y)
 
     # Print number of comments for each set
     print(f"There are {X_train.shape[0]} comments for training.")
     print(f"There are {X_test.shape[0]} comments for testing")
 
-    # Allow unigrams and bigrams
-    vectorizer = CountVectorizer(ngram_range=(1, 5))
+    clf = make_pipeline(
+        #TfidfVectorizer(stop_words=get_stop_words('en')),
+        TfidfVectorizer(),
+        SVC(kernel='linear', probability=True)
+    )
 
-    # Encode train text
-    X_train_vect = vectorizer.fit_transform(X_train.text.tolist())
-
-    # Fit model
-    clf=MultinomialNB()
-    clf.fit(X=X_train_vect, y=y_train)
-
-    # Vectorize test text
-    X_test_vect = vectorizer.transform(X_test.text.tolist())
-
+    clf = clf.fit(X=X_train['text'], y=y_train['label'])
+    
     # Make predictions for the test set
-    preds = clf.predict(X_test_vect)
+    y_pred = clf.predict(X_test['text'])
 
     # Return accuracy score
-    true_acc = accuracy_score(preds, y_test)
-    true_acc
-
+    true_acc = accuracy_score(y_pred, y_test)
+    
     # Calculate the confusion matrix
-    conf_matrix = confusion_matrix(y_true=y_test, y_pred=preds)
+    conf_matrix = confusion_matrix(y_true=y_test, y_pred=y_pred)
 
     # Print the confusion matrix using Matplotlib
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -62,19 +63,24 @@ def main(args):
     for i in range(conf_matrix.shape[0]):
         for j in range(conf_matrix.shape[1]):
             ax.text(x=j, y=i,s=conf_matrix[i, j], va='center', ha='center', size='xx-large')
-
+    
     plt.xlabel('Predictions', fontsize=18)
     plt.ylabel('Actuals', fontsize=18)
     plt.title('Confusion Matrix', fontsize=18)
     plt.show()
 
-    precision = precision_score(y_test, preds)
+    plt.savefig("confusion_matrix.png")
+    mlflow.log_artifact("confusion_matrix.png")
+
+    print('Accuracy: %.3f' % true_acc)
+
+    precision = precision_score(y_test, y_pred)
     print('Precision: %.3f' % precision)
 
-    recall = recall_score(y_test, preds)
+    recall = recall_score(y_test, y_pred)
     print('Recall: %.3f' % recall)
 
-    f1 = f1_score(y_test, preds)
+    f1 = f1_score(y_test, y_pred)
     print('f1: %.3f' % f1)
     
     
@@ -83,9 +89,7 @@ def main(args):
     mlflow.log_metric("Recall", recall)
     mlflow.log_metric("F1", f1)
     
-
-
-    
+     
     #### MODEL
     # Registering the model to the workspace
     print("Registering the model via MLFlow")
@@ -97,37 +101,15 @@ def main(args):
     
     # Saving the model to a file
     print("Saving the model via MLFlow")
-    mlflow.sklearn.save_model(clf, "../../model")
-
-    #### VECTORIZER
-    # Registering the vectorizer to the workspace
-    print("Registering the vectorizer via MLFlow")
-
-    mlflow.sklearn.log_model(
-        sk_model=vectorizer,
-        registered_model_name=args.registered_vec_name,
-        artifact_path=args.registered_vec_name,
+    mlflow.sklearn.save_model(
+        sk_model=clf,
+        path=os.path.join(args.registered_model_name, "trained_model"),
     )
-    
-    # Saving the vectorizer to a file
-    mlflow.sklearn.save_model(vectorizer, "../../model")
 
-    
-    # os.makedirs('./outputs', exist_ok=True)
-    # with open(args.registered_model_name, 'wb') as file:
-    #     joblib.dump(value=clf, filename='outputs/' + args.registered_model_name)    
-
-    # with open(args.registered_vec_name, 'wb') as file:
-    #     joblib.dump(value=vectorizer, filename='outputs/' + args.registered_vec_name)
-        
+            
     # Stop Logging
     mlflow.end_run()
-    
-def process_data(df, random_state):
-    X = df.drop(["label"], axis=1)
-    y = df["label"]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state, stratify=y)
-    return X_train, X_test, y_train, y_test
+
 
 # run script
 if __name__ == "__main__":
@@ -137,8 +119,8 @@ if __name__ == "__main__":
     # add arguments
     parser.add_argument("--spam-csv", type=str)
     parser.add_argument("--registered_model_name", type=str, help="model name")
-    parser.add_argument("--registered_vec_name", type=str, help="vectorizer name")
     parser.add_argument("--random_state", type=int, default=42)
+    parser.add_argument("--test_size", type=float, required=False, default=0.20)
 
     # parse args
     args = parser.parse_args()
