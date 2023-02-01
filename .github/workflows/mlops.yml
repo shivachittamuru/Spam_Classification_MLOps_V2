@@ -35,15 +35,7 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: Train Data
-        run: python aml_code/TrainOnLocal.py
-      
-      # Runs a set of commands using the runners shell
-      - name: Evaluate Model
-        run: python aml_code/EvaluateModel.py
-            
-      # Runs a set of commands using the runners shell
-      - name: Register Model
-        run: python aml_code/RegisterModel.py
+        run: python aml_code/TrainModel.py
         
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v3
@@ -73,9 +65,9 @@ jobs:
 
               # Runs a set of commands using the runners shell
       - name: Deploy to Azure Container Instance
-        run: python ./aml_code/DeployToAci.py
+        run: python ./aml_code/DeployModel.py
         
       - name: Test ACI Endpoint
-        run: python ./aml_code/AciWebserviceTest.py
+        run: python ./aml_code/TestEndpoint.py
           
   
