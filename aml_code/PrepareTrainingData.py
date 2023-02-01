@@ -30,8 +30,6 @@ ml_client = MLClient(
 # print Workspace details
 print(ml_client)
 
-
-
 """Load labeled spam dataset."""
 
 # Path where csv files are located
@@ -69,17 +67,12 @@ print(f"Value counts for each class:\n\n{df.label.value_counts()}\n")
 # Drop unused columns
 df = df.drop(['index', 'COMMENT_ID', 'AUTHOR', 'DATE'], axis=1)
 
-
 try:
     os.makedirs('./data/training_data', exist_ok=True)
     df.to_csv('./data/training_data/spam.csv', index=False, header=True)
     print('spam.csv training data created')
 except:
     print("directory already exists")
-
-
-    
-
 
 my_data = Data(
     path='./data/training_data/spam.csv',
@@ -88,7 +81,7 @@ my_data = Data(
     name="spam_class",
 )
 ml_client.data.create_or_update(my_data)
-
+print("Spam dataset registered and versioned!")
 
 #latest_version = ml_client.data._get_latest_version(name="spam_class").version
 #spam_dataset = ml_client.data.get(name="spam_class", version=latest_version)

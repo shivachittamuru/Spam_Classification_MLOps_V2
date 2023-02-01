@@ -111,13 +111,11 @@ job = command(
     #description=""
 )
 
-
 # submit the command
 returned_job = ml_client.create_or_update(job)
 
 aml_url = returned_job.studio_url
 print("Monitor your job at", aml_url)
-
 
 job_config = {}
 job_config["job_id"] = returned_job.id

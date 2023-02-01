@@ -45,7 +45,6 @@ model_version = config["model_version"]
 
 model = ml_client.models.get(name=model_name, version=model_version)
 
-
 # Creating an Online endpoint
 import datetime
 
@@ -68,9 +67,7 @@ blue_deployment = ManagedOnlineDeployment(
     instance_count=1
 )
 
-
 ml_client.online_deployments.begin_create_or_update(blue_deployment).result()
-
 
 # blue deployment takes 100 traffic
 endpoint.traffic = {"blue": 100}
