@@ -1,5 +1,5 @@
 {
-    "subscription_id": "1fad602f-d06f-46af-8f70-78a2c2c53b24",
-    "resource_group": "MLGroup",
-    "workspace_name": "shivamlservice"
+    "subscription_id": "<Subscription ID>",
+    "resource_group": "<Resource Group Name>",
+    "workspace_name": "<AML Workspace Name>"
 }
